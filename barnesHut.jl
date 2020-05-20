@@ -2,7 +2,7 @@
 using StaticArrays
 using Revise
 
-global G = 4.3e-3
+global G = 6.67e-11 # m^3/(kg*s^2)
 
 global THETA = 0.7
 
@@ -12,9 +12,9 @@ global frameRate = 1/60
 
 global M = 2e30 # 1 = 1 solar mass
 
-global timeScalar = 87600 #10 days in secs
+global timeScalar = 60*60*60*24*365*1e7 #1000000 year in frames
 
-global distanceRate = 3.3e16 # 1 = 1 parsec = 3.3 light year
+global distanceRate = 3.3e16 # 1 = 1 parsec = 3.3 light year = 3.3e16 m
 mutable struct Body
     id::Int64
     mass::Float64
@@ -59,19 +59,6 @@ function updateStats(node::Node)
     end
     node.mass = curMass
     node.centerOfMass = curCenterMass
-    #println(node.mass, node.centerOfMass)
-end
-
-# this function updates the position of a body
-function updatePosition(body::Body, newPosition::SVector{3, Float64} )::Nothing
-    body.position = newPosition
-    return
-end
-
-# this function updates the velocity of a body
-function updateSpeed(body::Body, newVelocity::SVector{3, Float64} )::Nothing
-    body.velocity = newVelocity
-    return
 end
 
 
@@ -97,19 +84,19 @@ function determineWhichoctants(position::SArray{Tuple{3},Float64,1,3},
 
     if minX <= x < midX && minY <= y < midY && minZ <= z < midZ
         return 5
-    elseif minX <= x < midX && minY <= y < midY && maxZ >z >= midZ
+    elseif minX <= x < midX && minY <= y < midY && maxZ >= z >= midZ
         return 7
-    elseif minX <= x < midX && maxY > y >= midY && minZ <= z < midZ
+    elseif minX <= x < midX && maxY >= y >= midY && minZ <= z < midZ
         return 1
-    elseif minX <= x < midX &&  maxY > y >= midY && maxZ> z >= midZ
+    elseif minX <= x < midX &&  maxY >= y >= midY && maxZ>= z >= midZ
         return 3
-    elseif maxX > x >= midX && minY <= y < midY && minZ <= z < midZ
+    elseif maxX >= x >= midX && minY <= y < midY && minZ <= z < midZ
         return 6
-    elseif maxX > x >= midX && minY <= y < midY && maxZ > z >= midZ
+    elseif maxX >= x >= midX && minY <= y < midY && maxZ >= z >= midZ
         return 8
-    elseif maxX > x >= midX && maxY > y >= midY && minZ <= z < midZ
+    elseif maxX >= x >= midX && maxY >= y >= midY && minZ <= z < midZ
         return 2
-    elseif maxX > x >= midX && maxY > y >= midY && maxZ > z >= midZ
+    elseif maxX >= x >= midX && maxY >= y >= midY && maxZ >= z >= midZ
         return 4
     end
 end
@@ -126,7 +113,6 @@ function createSubBounds(minBounds::SVector{3, Float64},maxBounds::SVector{3, Fl
     minZ = minBounds[3]
     maxZ = maxBounds[3]
     midZ = minZ + (maxZ-minZ)/2
-    #println(x1," ", x2, " ", x3, " ",y1, " ", y2, " ", y3," ", z1," ",z2," ", z3)
     quadMinBounds = [[minX,midY,minZ],
     [midX,midY,minZ],
     [minX,midY,midZ],
@@ -149,10 +135,6 @@ end
 # this function divides a space into 8 octantss and makes a new node for each octants
 function divideToOctants(node::Node)
     quadMinBounds, quadMaxBound = createSubBounds(node.minBounds, node.maxBounds)
-    #println("creating sub Bounds")
-    for i in 1:8
-        #println(i, " ", quadMinBounds[i], " ", quadMaxBound[i])
-    end
     for i in 1:8
         newNode = Node(
         false, Array{Node,1}(undef, 8),0,
@@ -177,16 +159,11 @@ function insertBody(node::Node, body::Body)
     totalMass = node.mass + body.mass
     node.centerOfMass = node.mass/totalMass.*node.centerOfMass + body.mass/totalMass.*body.position
     node.mass = totalMass
-    # println("node.body ",node.body.position)
-    # println("body ",body.position)
-    # println("min bounds", node.minBounds)
-    # println("max bounds", node.maxBounds)
     # where to insert the body?
     if node.hasChildren && node.numOfChild == 1 # we need to make new subnodes
 
         node.numOfChild += 1
         divideToOctants(node)
-        #println(octantsOriginal,octantsNew)
         insertBody(node.children[octantsOriginal], node.body)
         insertBody(node.children[octantsNew],body)
     elseif node.numOfChild > 1 # we already have subnodes
@@ -203,16 +180,13 @@ end
 
 # this function returns the norm given two coordinates
 function dis(x::SVector{3, Float64}, y::SVector{3, Float64})
-    return sqrt((x[1]-y[1])^2 + (x[2]-y[2])^2 + (x[3]-y[3])^2)
+    return distanceRate*sqrt((x[1]-y[1])^2 + (x[2]-y[2])^2 + (x[3]-y[3])^2)
 end
 
 # this function returns the direction subject to the plane of rotation (x-y)
 function getDirectionOfVelocity(x::SVector{3, Float64}, y::SVector{3, Float64})
-    displacement = [y[1]-x[1], y[2]-x[2],y[3]-x[3]]
+    displacement = distanceRate.*[y[1]-x[1], y[2]-x[2],y[3]-x[3]]
     velocityDir = cross([1.0,-1.0,-1.0], displacement)
-    println("displacement: ", displacement)
-    println("velocity direction: ", velocityDir)
-    println("velocity unit: ", velocityDir/dis(x,y) )
     return velocityDir/dis(x,y)
 end
 
@@ -233,15 +207,25 @@ function calculateForce(node::Node, body::Body)
             end
         else
             # this means that the node is far away from the body
-            currentForce = currentForce .+ G*node.mass*body.mass./(dis(node.centerOfMass,body.position)^3 ).*(node.centerOfMass .- body.position)
+            currentForce = currentForce .+ G*node.mass*body.mass./(dis(node.centerOfMass,body.position)^3 )*distanceRate.*(node.centerOfMass .- body.position)
         end
     elseif node.hasChildren && node.numOfChild == 1 && node.body.id!=body.id
-        currentForce = currentForce .+ G*node.mass*body.mass./(dis(node.centerOfMass,body.position)^3) .*(node.centerOfMass .- body.position)
+        currentForce = currentForce .+ G*node.body.mass*body.mass./(dis(node.body.position,body.position)^3)*distanceRate .*(node.body.position .- body.position)
     end
+    currentForce = currentForce # N
     body.force = currentForce
     acceleration = currentForce/body.mass
-    body.velocity = body.velocity .+ frameRate*timeScalar .* acceleration
-    body.position = body.position + frameRate*timeScalar.*body.velocity
+    time = frameRate*timeScalar
+    newPosition = body.position*distanceRate + time .* body.velocity + 0.5*time^2 .*acceleration
+    body.position = newPosition/distanceRate
+    velocity = body.velocity .+ time .* acceleration
+    speed = sqrt(velocity[1]^2+velocity[2]^2+velocity[3]^2)
+    velocityDir = velocity / speed
+    if speed >= 3e8
+        velocity = 3e8 .* velocityDir
+    end
+    body.velocity = velocity
+
     return body.force
 end
 
@@ -265,8 +249,6 @@ end
 
 # this function takes a node write the positions of the children nodes into a file
 function writeStatsToFile(node::Node)
-    # df = DataFrame(position1 = SVector{3, Float64}[],
-    # velocity = SVector{3, Float64}[], force =  SVector{3, Float64}[])
     df = DataFrame( mass = Float64[], positionX = Float64[], positionY = Float64[],positionZ = Float64[],
     velocityX = Float64[], velocityY = Float64[], velocityZ = Float64[],
     forceX = Float64[], forceY = Float64[], forceZ = Float64[] )
@@ -289,8 +271,8 @@ function writeStatsToFileHelper(node::Node, df::DataFrame)
 end
 
 # this funciton makes a body given the data from the matrix from the DataFrame from the CVS file
-function makeBodyFromStats(stats::Array{Float64,1})
-    body = Body(0, stats[1],
+function makeBodyFromStats(id,stats::Array{Float64,1})
+    body = Body(id, stats[1],
     [stats[2],stats[3], stats[4]],
     [stats[5],stats[6], stats[7]],
     [stats[8],stats[9], stats[10]])
@@ -334,10 +316,9 @@ end
 function makeTreeFromFile()
     df = CSV.read("data/"*string(timesInSec)*".csv")
     stats = convert(Matrix{Float64}, df)
-    #println(stats)
     numOfBodies = size(stats)[1]
     # make the first body (essential to initialize the tree)
-    firstBody = makeBodyFromStats(stats[1,1:10])
+    firstBody = makeBodyFromStats(0,stats[1,1:10])
     minimumX, minimumY, minimumZ, maximumX, maximumY,maximumZ = detectBounds(stats)
 
     # initialize the tree
@@ -352,7 +333,7 @@ function makeTreeFromFile()
 
     # add bodies
     for i in 2:numOfBodies
-        body = makeBodyFromStats(stats[i,1:10])
+        body = makeBodyFromStats(i,stats[i,1:10])
         insertBody(C, body)
     end
 
@@ -371,8 +352,7 @@ function caluculateInitialSpeedHelper(node::Node, centerOfMass::SVector{3, Float
             caluculateInitialSpeedHelper(node.children[i], centerOfMass, totalMass)
         end
     elseif node.hasChildren && node.numOfChild == 1
-        println(sqrt(G*totalMass)/dis(centerOfMass,node.body.position) .*getDirectionOfVelocity(centerOfMass,node.body.position))
-        node.body.velocity = sqrt(G*totalMass)/dis(centerOfMass,node.body.position) .*getDirectionOfVelocity(centerOfMass,node.body.position)
+        node.body.velocity = sqrt(G*totalMass/dis(centerOfMass,node.body.position)) .*getDirectionOfVelocity(centerOfMass,node.body.position)
     end
 end
 
@@ -380,20 +360,23 @@ function initialGalaxy()
     C= Node(
            false, Array{Node,1}(undef, 8),0,
            Body(), 0.0, SVector{3, Float64}(zeros(3)),
-           SVector{3, Float64}(0.0,0.0,0.0),SVector{3, Float64}(1000.0,1000.0,1000.0)
+           SVector{3, Float64}(-1.0,-1.0,-1.0),SVector{3, Float64}(1001.0,1001.0,1001.0)
            )
-    for i in 1:80
-        mass = exp(randn())
-        position = [rand(Uniform(1,1000)), rand(Uniform(1,1000)) ,rand(Uniform(1,1000))]
+    for i in 1:800
+        mass = exp(randn())*M
+        position = [rand(1:1000)+rand(Float64), rand(1:1000)+rand(Float64) ,rand(1:1000)+rand(Float64)]
         newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
-        #println(newBody.position)
         insertBody(C,newBody)
     end
+
+    writeStatsToFile(C)
     caluculateInitialSpeed(C)
     creep(C)
     writeStatsToFile(C)
-    #
-    for i in 1:900
+    secs = 30
+    frames = secs*60
+    # simulate new positions for "frames" frames
+    for i in 1:frames
         makeTreeFromFile()
         creep(C)
         writeStatsToFile(C)
