@@ -1,6 +1,8 @@
-# to initialize a Body, newBody = Body(mass, position, force, velocity)
 using StaticArrays
 using Revise
+using LinearAlgebra
+using CSV
+using DataFrames
 
 global G = 6.67e-11 # m^3/(kg*s^2)
 
@@ -12,9 +14,12 @@ global frameRate = 1/60
 
 global M = 2e30 # 1 = 1 solar mass
 
-global timeScalar = 60*60*60*24*365*1e7 #1000000 year in frames
+global timeScalar = 60*60*60*24*365*5e6 #1000000 year in frames
 
 global distanceRate = 3.3e16 # 1 = 1 parsec = 3.3 light year = 3.3e16 m
+
+global strengthOfInteraction = 1
+
 mutable struct Body
     id::Int64
     mass::Float64
@@ -43,23 +48,6 @@ Body(), 0.0, SVector{3, Float64}(zeros(3)),
 SVector{3, Float64}(zeros(3)),SVector{3, Float64}(zeros(3))
 )
 
-# this function update the center of Mass for each node
-function updateStats(node::Node)
-    curMass = 0.0
-    curCenterMass = SVector{3, Float64}(zeros(Float64,3))
-    if node.hasChildren && node.numOfChild > 1 # this means that the node has children
-        for i in 1:8
-            updateStats(node.children[i])
-            curMass += node.children[i].mass
-            curCenterMass = curCenterMass .+ node.children[i].mass/curMass.*node.children[i].centerOfMass
-        end
-    elseif node.hasChildren && node.numOfChild ==  1 # this means that the node has one body
-        curMass = node.body.mass
-        curCenterMass = node.body.position
-    end
-    node.mass = curMass
-    node.centerOfMass = curCenterMass
-end
 
 
 #this function returns which octants will the position belong to in the area defined by minBounds and maxBounds
@@ -192,13 +180,19 @@ end
 
 # this function calculate the force of a body acted by a node
 function calculateForce(node::Node, body::Body)
-    currentForce = SVector{3, Float64}(zeros(Float64,3))
+    currentForce =  calculateForceHelper(node, body)
+    body.force = strengthOfInteraction*currentForce
+    return body.force
+end
+
+function calculateForceHelper(node::Node, body::Body)
+    currentForce = [0.0,0.0,0.0]
     if node.hasChildren && node.numOfChild > 1
         # calculate the s/d ratio
         d = dis(node.centerOfMass,body.position)
-        delx = node.minBounds[1] - node.maxBounds[1]
-        dely = node.minBounds[2] - node.maxBounds[2]
-        delz = node.minBounds[3] - node.maxBounds[3]
+        delx = (node.maxBounds[1] - node.minBounds[1])*distanceRate
+        dely = (node.maxBounds[2] - node.minBounds[2])*distanceRate
+        delz = (node.maxBounds[3] - node.minBounds[3])*distanceRate
         s = max(delx,dely,delz)
         if s/d > THETA
             # this means that the node is considered close to the body
@@ -210,37 +204,53 @@ function calculateForce(node::Node, body::Body)
             currentForce = currentForce .+ G*node.mass*body.mass./(dis(node.centerOfMass,body.position)^3 )*distanceRate.*(node.centerOfMass .- body.position)
         end
     elseif node.hasChildren && node.numOfChild == 1 && node.body.id!=body.id
-        currentForce = currentForce .+ G*node.body.mass*body.mass./(dis(node.body.position,body.position)^3)*distanceRate .*(node.body.position .- body.position)
+        if node.body.position == body.position
+            println("crap")
+        end
+        currentForce = currentForce .+ G*node.mass*body.mass./(dis(node.centerOfMass,body.position)^3)*distanceRate .*(node.body.position .- body.position) # try switching direction of force
     end
-    currentForce = currentForce # N
-    body.force = currentForce
-    acceleration = currentForce/body.mass
-    time = frameRate*timeScalar
-    newPosition = body.position*distanceRate + time .* body.velocity + 0.5*time^2 .*acceleration
-    body.position = newPosition/distanceRate
-    velocity = body.velocity .+ time .* acceleration
-    speed = sqrt(velocity[1]^2+velocity[2]^2+velocity[3]^2)
-    velocityDir = velocity / speed
-    if speed >= 3e8
-        velocity = 3e8 .* velocityDir
-    end
-    body.velocity = velocity
-
-    return body.force
+    return currentForce
 end
 
-# this function traverse the node and calculate the new positions and velocities of the children
+# this function first calls apply force to get updates on the new net force acted on the body,
+# and then call creepHelper to update the new position and velocity for each body
 function creep(node::Node)
-    global timesInSec += frameRate
-    creepHelper(node, node)
-
+    applyForce(node)
+    creepHelper(node)
 end
 
-# this function is a recursive helper for apply
-function creepHelper(originalNode::Node, node::Node)
+function creepHelper(node::Node)
     if node.hasChildren && node.numOfChild > 1
         for i in 1:8
-            creepHelper(originalNode, node.children[i])
+            creepHelper(node.children[i])
+        end
+    elseif node.hasChildren && node.numOfChild == 1
+        acceleration = node.body.force/node.body.mass
+        time = frameRate*timeScalar
+        newPosition = node.body.position*distanceRate + time .* node.body.velocity + 0.5*time^2 .*acceleration
+        node.body.position = newPosition/distanceRate
+        velocity = node.body.velocity .+ time .* acceleration
+        speed = sqrt(velocity[1]^2+velocity[2]^2+velocity[3]^2)
+        velocityDir = velocity / speed
+        if speed >= 3e8
+            velocity = 3e8 .* velocityDir
+            println("speed of light!")
+        end
+        node.body.velocity = velocity
+    end
+end
+
+# this function traverse the node and calculate and apply the new force of each body
+function applyForce(node::Node)
+    applyForceHelper(node, node)
+
+end
+
+# this function is a recursive helper for applyForce
+function applyForceHelper(originalNode::Node, node::Node)
+    if node.hasChildren && node.numOfChild > 1
+        for i in 1:8
+            applyForceHelper(originalNode, node.children[i])
         end
     elseif node.hasChildren && node.numOfChild == 1
         calculateForce(originalNode, node.body)
@@ -248,19 +258,22 @@ function creepHelper(originalNode::Node, node::Node)
 end
 
 # this function takes a node write the positions of the children nodes into a file
-function writeStatsToFile(node::Node)
+function writeStatsToFrame(node::Node)
     df = DataFrame( mass = Float64[], positionX = Float64[], positionY = Float64[],positionZ = Float64[],
     velocityX = Float64[], velocityY = Float64[], velocityZ = Float64[],
     forceX = Float64[], forceY = Float64[], forceZ = Float64[] )
-    writeStatsToFileHelper(node, df)
-    CSV.write("data/"*string(timesInSec)*".csv", df)
+    # first entry is the center of mass
+    push!(df, [node.mass, node.centerOfMass[1],node.centerOfMass[2],node.centerOfMass[3],
+     0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    writeStatsToFrameHelper(node, df)
+    return df
 end
 
 # this function is a recursive helper function for writeStatsToFile
-function writeStatsToFileHelper(node::Node, df::DataFrame)
+function writeStatsToFrameHelper(node::Node, df::DataFrame)
     if node.hasChildren && node.numOfChild > 1
         for i in 1:8
-            writeStatsToFileHelper(node.children[i],df)
+            writeStatsToFrameHelper(node.children[i],df)
         end
     elseif node.hasChildren && node.numOfChild == 1
         # push!(df, [node.body.position,node.body.velocity,node.body.force])
@@ -270,12 +283,14 @@ function writeStatsToFileHelper(node::Node, df::DataFrame)
     end
 end
 
+
+
 # this funciton makes a body given the data from the matrix from the DataFrame from the CVS file
 function makeBodyFromStats(id,stats::Array{Float64,1})
     body = Body(id, stats[1],
     [stats[2],stats[3], stats[4]],
-    [stats[5],stats[6], stats[7]],
-    [stats[8],stats[9], stats[10]])
+    [stats[8],stats[9], stats[10]],
+    [stats[5],stats[6], stats[7]])
     return body
 end
 
@@ -313,8 +328,7 @@ function detectBounds(stats::Matrix{Float64})
 end
 
 # this function make a tree from the csv file
-function makeTreeFromFile()
-    df = CSV.read("data/"*string(timesInSec)*".csv")
+function makeTreeFromFrame(df)
     stats = convert(Matrix{Float64}, df)
     numOfBodies = size(stats)[1]
     # make the first body (essential to initialize the tree)
@@ -322,16 +336,17 @@ function makeTreeFromFile()
     minimumX, minimumY, minimumZ, maximumX, maximumY,maximumZ = detectBounds(stats)
 
     # initialize the tree
-    C = Node(false, # hasChildren
-    Array{Node,1}(undef, 8), # children
-    0, # numOfChild
-    firstBody, # body
-    firstBody.mass, # mass
-    firstBody.position, # centerOfMass
-    SVector{3, Float64}(minimumX,minimumY,minimumZ), # minBounds
-    SVector{3, Float64}(maximumX,maximumY,maximumZ)) # maxBounds
+    C= Node(
+       false, # hasChildren
+       Array{Node,1}(undef, 8), # children
+       0, # numOfChild
+       Body(), # body
+       0.0, # mass
+       SVector{3, Float64}(zeros(3)), # centerOfMass
+       SVector{3, Float64}(minimumX,minimumY,minimumZ), # minBounds
+       SVector{3, Float64}(maximumX,maximumY,maximumZ)) # maxBounds
 
-    # add bodies
+    # add bodies, skip the center of mass column
     for i in 2:numOfBodies
         body = makeBodyFromStats(i,stats[i,1:10])
         insertBody(C, body)
@@ -356,63 +371,17 @@ function caluculateInitialSpeedHelper(node::Node, centerOfMass::SVector{3, Float
     end
 end
 
-function initialGalaxy()
-    C= Node(
-           false, Array{Node,1}(undef, 8),0,
-           Body(), 0.0, SVector{3, Float64}(zeros(3)),
-           SVector{3, Float64}(-1.0,-1.0,-1.0),SVector{3, Float64}(1001.0,1001.0,1001.0)
-           )
-    for i in 1:800
-        mass = exp(randn())*M
-        position = [rand(1:1000)+rand(Float64), rand(1:1000)+rand(Float64) ,rand(1:1000)+rand(Float64)]
-        newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
-        insertBody(C,newBody)
-    end
-
-    writeStatsToFile(C)
-    caluculateInitialSpeed(C)
-    creep(C)
-    writeStatsToFile(C)
-    secs = 30
-    frames = secs*60
-    # simulate new positions for "frames" frames
-    for i in 1:frames
-        makeTreeFromFile()
-        creep(C)
-        writeStatsToFile(C)
-    end
-
+# this function update the tree of bodies with stable orbit velocity
+function caluculateInitialSpeedPlus(node::Node, centerOfMassVelocity::SVector{3, Float64})
+    caluculateInitialSpeedPlusHelper(node, node.centerOfMass, node.mass, centerOfMassVelocity)
 end
 
-function main()
-    C= Node(
-           false, Array{Node,1}(undef, 8),0,
-           Body(), 0.0, SVector{3, Float64}(zeros(3)),
-           SVector{3, Float64}(0.0,0.0,0.0),SVector{3, Float64}(10.0,10.0,10.0)
-           )
-    divideTooctants(C)
-
-    b =  Body(0,4.0, SVector{3, Float64}(4,2.0,3.0),
-           SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(4,2.0,3.0))
-
-    c = Body(1,5.5, SVector{3, Float64}(3,8.0,3.0),
-    SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(4,8,3.0))
-
-    d = Body(2,5.7, SVector{3, Float64}(5.6,2.0,8.9),
-    SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(9,132.0,3.0))
-
-    insertBody(C,b)
-
-    insertBody(C,c)
-
-    insertBody(C,d)
-
-    creep(C)
-    writeStatsToFile(C)
-    for i in 1:20
-        makeTreeFromFile()
-        creep(C)
-        writeStatsToFile(C)
+function caluculateInitialSpeedPlusHelper(node::Node, centerOfMass::SVector{3, Float64}, totalMass::Float64, centerOfMassVelocity::SVector{3, Float64})
+    if node.hasChildren && node.numOfChild > 1
+        for i in 1:8
+            caluculateInitialSpeedPlusHelper(node.children[i], centerOfMass, totalMass,centerOfMassVelocity )
+        end
+    elseif node.hasChildren && node.numOfChild == 1 && node.body.velocity ==0
+        node.body.velocity = centerOfMassVelocity + sqrt(G*totalMass/dis(centerOfMass,node.body.position)) .*getDirectionOfVelocity(centerOfMass,node.body.position)
     end
-
 end

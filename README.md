@@ -2,6 +2,10 @@
 
 This is a galaxy simulator implemented with Barnes Hut Algorithm.
 
+## Background
+Barnes-Hut Algorithm is a novel and clever algorithm in solving the famous n-body problem, which is used to predict the motion of individual objects under the influence of other objects in a cosmological setting. By the usage of tree data structure and grouping nearby bodies, Barnes-Hut Algorithm reduces the time complexity from the brute force O(n^2) to O(nlogn).
+Read more: [![wikipedia](https://en.wikipedia.org/wiki/Barnes%E2%80%93Hut_simulation)](https://en.wikipedia.org/wiki/Barnes%E2%80%93Hut_simulation)
+
 ## Installation
 
 
@@ -16,6 +20,11 @@ To start the simulation, run
 ```
 include("simulation.jl")
 ```
+Theta is set to 0.7, to change it
+```
+changeTheta(newTheta)
+```
+
 ### A Random Galaxy
 The default simulation simulates 100 bodies in a space of 3300pc, while 1 second in the simulation represents 10 thousand years.  
 ```
@@ -50,5 +59,15 @@ twoCollapseGalaxy([,num1 -> number of bodies in the first galaxy,
                   type2 -> the type of the second galaxy,
                   vector1 -> the normal vector or direction vector of the first galaxy,
                   vector2 -> the normal vector or direction vector of the second galaxy]
-    ```
+```
 ![twoGalaxies.gif](exampleSimulation/twoGalaxies.gif)
+
+## Todos
+1. Two Galaxies collapsing needs the user to define a better initial condition than the default
+2. Add progress bar while the program is running
+3. Add interactive interface to view the simulation from different angles
+
+## Credits
+Thanks to Professor Vatche Sahakian for inspiring this project and providing feedbacks.
+Thanks to my friend Jonathan Hayase for supporting and brainstorming.
+Thanks to my Lord for the amazing universe.

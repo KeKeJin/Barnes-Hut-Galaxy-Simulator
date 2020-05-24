@@ -1,4 +1,4 @@
-includet("barnesHut-original.jl")
+includet("barnesHut.jl")
 includet("visualization.jl")
 
 # this is a helper function called by other specific simulator functions
@@ -26,7 +26,7 @@ function basicSimulation(C::Node, num::Int64)
     plotting()
 end
 
-# this function initialize an empty body based on the type
+# this function is a helper function that returns minBounds and maxBounds based on the type
 function getBoundsBasedOnTypes(type::String, vector::Array{Float64,1}, minX::Float64, maxX::Float64)
     minBounds = SVector{3, Float64}(zeros(Float64,3))
     maxBounds = SVector{3, Float64}(zeros(Float64,3))
@@ -63,7 +63,7 @@ function getBoundsBasedOnTypes(type::String, vector::Array{Float64,1}, minX::Flo
     return minBounds, maxBounds
 end
 
-# this function is a helper function that add bodies based on different system
+# this function is a helper function that adds bodies based on different system
 function addBodies(C::Node, type::String, num::Int64, vector::Array{Float64,1}, minn::Int64,maxx::Int64)
     if type == "random"
         # add random bodies
@@ -75,6 +75,7 @@ function addBodies(C::Node, type::String, num::Int64, vector::Array{Float64,1}, 
         end
     elseif type == "disk"
         normal = vector
+        # cases for different normal vector
         if normal[3]==0 && normal[1]!= 0 && normal[2]!= 0
             # add bodies in a disk shaped space
             for i in minn:num
@@ -160,7 +161,7 @@ function addBodies(C::Node, type::String, num::Int64, vector::Array{Float64,1}, 
 end
 
 # this is a random galaxy simulator similating a space of 1000 pc * 1000 pc *1000 pc
-# input: num -> number of bodies in the system
+# optional argument: num -> number of bodies in the system
 function randomGalaxy(num::Int64=100)
     minBounds, maxBounds = getBoundsBasedOnTypes("random",[0.0,0.0,0.0], -1.0, 1001.0)
     # making an empty tree
@@ -191,7 +192,8 @@ function randomGalaxy(num::Int64=100)
 end
 
 # this is a disk-shaped galaxy simulator similating a space of 1000 pc * 1000 pc *1000 pc
-# input: normal-> the normal vector of the plane; num -> number of bodies in the system
+# optional arguments: normal-> the normal vector of the plane;
+#       num -> number of bodies in the system
 function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=100)
     if length(normal)!=3
         error("Normal vector must have 3 components")
@@ -229,7 +231,8 @@ function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=100)
 end
 
 # this is a line-shaped galaxy simulator similating a space of 1000 pc * 1000 pc *1000 pc
-# optional arguments: dir-> the direction of the line; num -> number of bodies on the line
+# optional arguments: dir-> the direction of the line;
+#                       num -> number of bodies on the line
 function lineGalaxy(dir::Array{Float64,1}=[1.0,1.0,0.0], num::Int64=100)
     if length(dir)!=3
         error("Direction vector must have 3 components")
@@ -265,6 +268,15 @@ function lineGalaxy(dir::Array{Float64,1}=[1.0,1.0,0.0], num::Int64=100)
     basicSimulation(C,num)
 end
 
+# this is a system of two galaxies simulator similating a space of 1000 pc * 1000 pc *1000 pc
+# optional arguments: num1 -> number of bodies in the first galaxy,
+#                     num2 -> number of bodies in the second galaxy,
+#                     velocity1 -> the velocity of the first galaxy,
+#                     velocity2 -> the velocity of the second galaxy,
+#                     type1 -> the type of the first galaxy,
+#                     type2 -> the type of the second galaxy,
+#                     vector1 -> the normal vector or direction vector of the first galaxy,
+#                     vector2 -> the normal vector or direction vector of the second galaxy]
 function twoCollapseGalaxy(num1::Int64=100,num2::Int64=100, velocity1::SVector{3,Float64}=SVector{3,Float64}(50.0,50.0,50.0),
     velocity2::SVector{3,Float64}=SVector{3,Float64}(-100.0,-100.0,-100.0), type1::String="disk",type2::String="disk",
     vector1::Array{Float64,1}=[1.0,1.0,0.0], vector2::Array{Float64,1}=[1.0,1.0,0.0])
@@ -290,8 +302,6 @@ function twoCollapseGalaxy(num1::Int64=100,num2::Int64=100, velocity1::SVector{3
     netMaxBounds = SVector{3, Float64}(max(maxBounds1[1],maxBounds2[1]),
                                        max(maxBounds1[2],maxBounds2[2]),
                                        max(maxBounds1[3],maxBounds2[3]))
-    println(netMinBounds)
-    println(netMaxBounds)
     C= Node(
            false, Array{Node,1}(undef, 8),0,
            Body(), 0.0, SVector{3, Float64}(zeros(3)),
@@ -324,4 +334,10 @@ function twoCollapseGalaxy(num1::Int64=100,num2::Int64=100, velocity1::SVector{3
     global strengthOfInteraction = nothing
     global strengthOfInteraction = 1
     basicSimulation(C,num1+num2)
+end
+
+# this function changes theta (s/d)
+function changeTheta(theta::Float64)
+    global THETA = nothing
+    global THETA = theta
 end
