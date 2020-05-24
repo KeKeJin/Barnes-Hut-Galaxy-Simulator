@@ -3,7 +3,8 @@
 This is a galaxy simulator implemented with Barnes Hut Algorithm.
 
 ## Background
-Barnes-Hut Algorithm is a novel and clever algorithm in solving the famous n-body problem, which is used to predict the motion of individual objects under the influence of other objects in a cosmological setting. By the usage of tree data structure and grouping nearby bodies, Barnes-Hut Algorithm reduces the time complexity from the brute force O(n^2) to O(nlogn).\n
+Barnes-Hut Algorithm is a novel and clever algorithm in solving the famous n-body problem, which is used to predict the motion of individual objects under the influence of other objects in a cosmological setting. By the usage of tree data structure and grouping nearby bodies, Barnes-Hut Algorithm reduces the time complexity from the brute force O(n^2) to O(nlogn).
+
 Read more: [wikipedia](https://en.wikipedia.org/wiki/Barnes%E2%80%93Hut_simulation)
 
 ## Installation
@@ -75,6 +76,8 @@ twoCollapseGalaxy([,num1 -> number of bodies in the first galaxy,
 7. Parallelize and optimize the code
 
 ## Credits
-Thanks to Professor Vatche Sahakian for inspiring this project, providing feedbacks, and helping to trouble shoot.\n
-Thanks to my friend Jonathan Hayase for julia syntax support and providing feedbacks and idea.\n
+Thanks to Professor Vatche Sahakian for inspiring this project, providing feedbacks, and helping to trouble shoot.
+
+Thanks to my friend Jonathan Hayase for julia syntax support and providing feedbacks and idea.
+
 And thanks to my only and truly almighty God for the amazing universe.
