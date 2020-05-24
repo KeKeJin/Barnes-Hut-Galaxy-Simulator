@@ -78,7 +78,7 @@ function addBodies(C::Node, type::String, num::Int64, vector::Array{Float64,1}, 
         # cases for different normal vector
         if normal[3]==0 && normal[1]!= 0 && normal[2]!= 0
             # add bodies in a disk shaped space
-            for i in minn:num
+            for i in 1:num
                 mass = exp(randn())*M
                 x = rand(minn:maxx)+rand(Float64)
                 y = (0-normal[1]*x)/normal[2]
@@ -261,9 +261,9 @@ function lineGalaxy(dir::Array{Float64,1}=[1.0,1.0,0.0], num::Int64=100)
         global strengthOfInteraction = 3
     else
         global timeScalar = nothing
-        global timeScalar = 60*60*60*24*365*5e6
+        global timeScalar = 60*60*60*24*365*5e5
         global strengthOfInteraction = nothing
-        global strengthOfInteraction = 1
+        global strengthOfInteraction = 0.1
     end
     basicSimulation(C,num)
 end
@@ -316,21 +316,23 @@ function twoCollapseGalaxy(num1::Int64=100,num2::Int64=100, velocity1::SVector{3
     elseif type1 == "line"
         addBodies(C,"line",num1, vector1,1,500)
     end
+    println(C.numOfChild)
     caluculateInitialSpeedPlus(C,velocity1)
 
     if type2 == "disk"
+        println("here")
         addBodies(C,"disk",num2,vector2,500,1000)
     elseif type2 == "random"
         addBodies(C,"random",num2, [0.0,0.0,0.0],500,1000)
     elseif type2 == "line"
         addBodies(C,"line",num1, vector2,500,1000)
+    end
 
     caluculateInitialSpeedPlus(C,velocity2)
 
-    end
     println(C.numOfChild)
     global timeScalar = nothing
-    global timeScalar = 60*60*60*24*365*7e7
+    global timeScalar = 60*60*60*24*365*5e6
     global strengthOfInteraction = nothing
     global strengthOfInteraction = 1
     basicSimulation(C,num1+num2)
