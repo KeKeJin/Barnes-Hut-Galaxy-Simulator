@@ -25,24 +25,31 @@ Theta is set to 0.7, to change it
 ```
 changeTheta(newTheta)
 ```
-In the below simulation, the yellow dot marks the center of mass of the system, and
+In the below simulation, the yellow dot marks the center of mass of the system, and the simulator writes CSV files in ```\data``` and erases them later.
+
 ---
+
 ### A Random Galaxy
 The default simulation simulates 100 bodies in a 3D space of 3300pc, while 1 second in the simulation represents 5 million years.  
 ```
 randomGalaxy([, num => number of bodies in the simulator])
 ```
-The simulator writes CSV files in ```\data``` and erases them later.
+
 ![random.gif](exampleSimulation/random.gif)
+
+---
+
 ### A Disk-Shaped Galaxy
 The default simulation simulates 100 bodies in a disk in the plane x+y=0, while 1 second in the simulation represents 5 million years.
 ```
 diskGalaxy([, normal => normal vector of the disk plane,
             num => number of bodies in the simulator])
 ```
-The simulator writes CSV files in ```\data``` and erases them later.
+
 ![diskGalaxy.gif](exampleSimulation/diskGalaxy.gif)
+
 ---
+
 ### A Line-Shaped Galaxy
 The default simulation simulates 100 bodies in a line of in the direction of (1,1,0), while 1 second in the simulation represents 5 million years.
 ```
@@ -51,7 +58,9 @@ lineGalaxy([, dir => direction vector of the line,
 ```
 The simulator writes CSV files in ```\data``` and erases them later.
 ![lineGalaxy.gif](exampleSimulation/lineGalaxy.gif)
+
 ---
+
 ### A System of Two Galaxies
 The default simulation simulates a disk-shaped galaxy of 100 bodies in the plane of x+y=0 moving towards a disk-shaped galaxy of 100 bodies in the plane of x+y+z=0
 ```
@@ -65,6 +74,8 @@ twoCollapseGalaxy([,num1 -> number of bodies in the first galaxy,
                   vector2 -> the normal vector or direction vector of the second galaxy]
 ```
 ![twoGalaxies2.gif](exampleSimulation/twoGalaxies2.gif)
+
+---
 
 ## Todos
 1. Two Galaxies collapsing needs the user to define a better initial condition than the default
