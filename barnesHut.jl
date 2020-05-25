@@ -20,6 +20,7 @@ global distanceRate = 3.3e16 # 1 = 1 parsec = 3.3 light year = 3.3e16 m
 
 global strengthOfInteraction = 1
 
+global rotatingPlane = [1.0,-1.0,-1.0]
 mutable struct Body
     id::Int64
     mass::Float64
@@ -174,7 +175,7 @@ end
 # this function returns the direction subject to the plane of rotation (x-y)
 function getDirectionOfVelocity(x::SVector{3, Float64}, y::SVector{3, Float64})
     displacement = distanceRate.*[y[1]-x[1], y[2]-x[2],y[3]-x[3]]
-    velocityDir = cross([1.0,-1.0,-1.0], displacement)
+    velocityDir = cross(rotatingPlane, displacement)
     return velocityDir/dis(x,y)
 end
 

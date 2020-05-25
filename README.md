@@ -17,14 +17,39 @@ git clone https://github.com/KeKeJin/Barnes-Hut-Galaxy-Simulator.git
 
 ## Usage
 
+### Getting Started
 To start the simulation, run
 ```
 include("simulation.jl")
 ```
-Theta is set to 0.7, to change it
+#### Theta
+The key of the algorithm is while calculating the net force on a body, not to iterate through all the other bodies in the system, but to selectively decide whether to approximate a group of bodies or not. This is done by specifying a parameter `theta`. In short, the bigger the `theta`, the more approximating a group of close bodies as one body. If `theta` is set to 0, there is no approximation.
+
+In the simulation, `theta` is set to 0.7. To change it
 ```
-changeTheta(newTheta)
+changeTheta(newTheta -> a floating point indication the theta of the algorithm)
 ```
+#### Speeding Up/Slowing Down the Simulation
+If you feel like the stars are moving too slow or too fast
+```
+changeSpeed(factor -> a floating point indicating how much faster/slower)
+```
+#### Making the Simulation Longer/Shorter
+If you want to check how long is the current simulation
+```
+getDuration()
+```
+If you want to simulate a longer or a shorter time
+```
+changeDuration(factor -> a floating point indicating how much longer/shorter)
+```
+#### Changing Rotation Plane
+The rotation plane is set up so that all bodies are assigned an initial swirl on the rotation plane. This is crucial for certain simulations like disk simulation. However, if you want to change the plane where all stars are rotating on,
+```
+changeRotatingPlane(vector -> a 3-D normal vector of a plane)
+```
+
+#### Additional Notes
 In the below simulation, the yellow dot marks the center of mass of the system, and the simulator writes CSV files in ```\data``` and erases them later.
 
 ---

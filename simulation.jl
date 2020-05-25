@@ -1,8 +1,9 @@
 includet("barnesHut.jl")
 includet("visualization.jl")
+global secs = 30
 
 # this is a helper function called by other specific simulator functions
-function basicSimulation(C::Node, num::Int64)
+function basicSimulation(C::Node)
     global timesInSec = 0.00
 
 
@@ -12,8 +13,6 @@ function basicSimulation(C::Node, num::Int64)
     # write this stats to a csv file
     CSV.write("data/"*string(timesInSec)*".csv", df)
 
-
-    secs = 30
     frames = secs*60
     # simulate new positions for "frames" number of frames
     for i in 1:frames
@@ -63,100 +62,112 @@ function getBoundsBasedOnTypes(type::String, vector::Array{Float64,1}, minX::Flo
     return minBounds, maxBounds
 end
 
+# this function gets random position based on the type of the galaxy
+function getRandomPosition(type::String, num, vector::Array{Float64,1}, minn::Int64,maxx::Int64)
+    if type == "random"
+        position = [rand(minn:maxx)+rand(Float64), rand(minn:maxx)+rand(Float64) ,rand(minn:maxx)+rand(Float64)]
+    elseif type == "disk"
+        normal = vector
+        x = 0.0
+        y = 0.0
+        z = 0.0
+        if normal[3]==0 && normal[1]!= 0 && normal[2]!= 0
+            x = rand(minn:maxx)+rand(Float64)
+            y = (0-normal[1]*x)/normal[2]
+            z = rand(minn:maxx)+rand(Float64)
+        elseif normal[3]==0 && normal[1]== 0 && normal[2]!= 0
+            x = rand(minn:maxx)+rand(Float64)
+            y = (0-normal[1]*x)/normal[2]
+            z = rand(minn:maxx)+rand(Float64)
+        elseif normal[2]==0 && normal[1]!= 0 && normal[3]!= 0
+            x = rand(minn:maxx)+rand(Float64)
+            y = rand(minn:maxx)+rand(Float64)
+            z = (0-normal[1]*x)/normal[3]
+        elseif normal[1]==0 && normal[2]!= 0 && normal[3]!= 0
+            x = rand(minn:maxx)+rand(Float64)
+            y = rand(minn:maxx)+rand(Float64)
+            z = (0-normal[2]*y)/normal[3]
+        else
+            x = rand(minn:maxx)+rand(Float64)
+            y = rand(minn:maxx)+rand(Float64)
+            z = (0-x*normal[1]-y*normal[2])/normal[3]
+        end
+        position = [x,y,z]
+    elseif type == "line"
+        dir = vector
+        x = 0.0
+        y = 0.0
+        z = 0.0
+        if dir[1]!=0
+            x = rand(minn:maxx)+rand(Float64)
+            y = dir[2]*x/dir[1]
+            z = dir[3]*x/dir[1]
+        elseif dir[2]!=0
+            y = rand(minn:maxx)+rand(Float64)
+            x = dir[1]*y/dir[2]
+            z = dir[3]*y/dir[2]
+        end
+        position = [x,y,z]
+    end
+    return position
+end
 # this function is a helper function that adds bodies based on different system
 function addBodies(C::Node, type::String, num::Int64, vector::Array{Float64,1}, minn::Int64,maxx::Int64)
+    mid = (maxx - minn)/5
     if type == "random"
         # add random bodies
-        for i in 1:num
+        for i in 1:Int(floor(0.9num))
             mass = exp(randn())*M
-            position = [rand(minn:maxx)+rand(Float64), rand(minn:maxx)+rand(Float64) ,rand(minn:maxx)+rand(Float64)]
+            position = getRandomPosition("random", num, [0.0,0.0,0.0], minn,maxx)
             newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
             insertBody(C,newBody)
         end
+        for i in 1:(num - Int(floor(0.9num)))-1
+            mass = (rand(1:12)+rand(Float64))*10M
+            position = getRandomPosition("random", num, [0.0,0.0,0.0], Int64(ceil(minn+mid)),Int64(floor(maxx-mid)))
+            newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+            insertBody(C,newBody)
+        end
+        mass = (rand(1:10)+rand(Float64))*100M
+        position = getRandomPosition("random", num, vector,Int64(ceil(minn+2mid)),Int64(floor(maxx-2mid)))
+        newBody = Body(num, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+        insertBody(C,newBody)
+
     elseif type == "disk"
-        normal = vector
-        # cases for different normal vector
-        if normal[3]==0 && normal[1]!= 0 && normal[2]!= 0
-            # add bodies in a disk shaped space
-            for i in 1:num
-                mass = exp(randn())*M
-                x = rand(minn:maxx)+rand(Float64)
-                y = (0-normal[1]*x)/normal[2]
-                z = rand(minn:maxx)+rand(Float64)
-                newBody = Body(i, mass, [x,y,z], SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
-                insertBody(C,newBody)
-            end
-        elseif normal[3]==0 && normal[1]== 0 && normal[2]!= 0
-            # add bodies in a disk shaped space
-            for i in 1:num
-                mass = exp(randn())*M
-                x = rand(minn:maxx)+rand(Float64)
-                y = 0
-                z = rand(minn:maxx)+rand(Float64)
-                newBody = Body(i, mass, [x,y,z], SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
-                insertBody(C,newBody)
-            end
-        elseif normal[2]==0 && normal[1]!= 0 && normal[3]!= 0
-            # add bodies in a disk shaped space
-            for i in 1:num
-                mass = exp(randn())*M
-                x = rand(minn:maxx)+rand(Float64)
-                y = rand(minn:maxx)+rand(Float64)
-                z = (0-normal[1]*x)/normal[3]
-                newBody = Body(i, mass, [x,y,z], SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
-                insertBody(C,newBody)
-            end
-        elseif normal[2]==0 && normal[1]== 0 && normal[3]!= 0
-            # add bodies in a disk shaped space
-            for i in 1:num
-                mass = exp(randn())*M
-                x = rand(minn:maxx)+rand(Float64)
-                y = rand(minn:maxx)+rand(Float64)
-                z = 0
-                newBody = Body(i, mass, [x,y,z], SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
-                insertBody(C,newBody)
-            end
-        elseif normal[1]==0 && normal[2]!= 0 && normal[3]!= 0
-            # add bodies in a disk shaped space
-            for i in 1:num
-                mass = exp(randn())*M
-                x = rand(minn:maxx)+rand(Float64)
-                y = rand(minn:maxx)+rand(Float64)
-                z = (0-normal[2]*y)/normal[3]
-                newBody = Body(i, mass, [x,y,z], SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
-                insertBody(C,newBody)
-            end
-        else
-            for i in 1:num
-                mass = exp(randn())*M
-                x = rand(minn:maxx)+rand(Float64)
-                y = rand(minn:maxx)+rand(Float64)
-                z = (0-x*normal[1]-y*normal[2])/normal[3]
-                newBody = Body(i, mass, [x,y,z], SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
-                insertBody(C,newBody)
-            end
+        for i in 1:Int(floor(0.9num))
+            mass = exp(randn())*M
+            position = getRandomPosition("disk", num, vector, minn,maxx)
+            newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+            insertBody(C,newBody)
         end
+        for i in 1:(num - Int(floor(0.9num)))-1
+            mass = (rand(1:10)+rand(Float64))*10M
+            position = getRandomPosition("disk", num, vector, Int64(ceil(minn+mid)),Int64(floor(maxx-mid)))
+            newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+            insertBody(C,newBody)
+        end
+        mass = (rand(1:10)+rand(Float64))*100M
+        position = getRandomPosition("disk", num, vector, Int64(ceil(minn+2mid)),Int64(floor(maxx-2mid)))
+        newBody = Body(num, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+        insertBody(C,newBody)
+
     elseif type == "line"
-        dir = vector
-        if dir[1]!=0
-            for i in 1:num
-                mass = exp(randn())*M
-                x = rand(minn:maxx)+rand(Float64)
-                y = dir[2]*x/dir[1]
-                z = dir[3]*x/dir[1]
-                newBody = Body(i, mass, [x,y,z], SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
-                insertBody(C,newBody)
-            end
-        elseif dir[2]!=0
-            for i in 1:num
-                mass = exp(randn())*M
-                y = rand(minn:maxx)+rand(Float64)
-                x = dir[1]*y/dir[2]
-                z = dir[3]*y/dir[2]
-                newBody = Body(i, mass, [x,y,z], SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
-                insertBody(C,newBody)
-            end
+        for i in 1:Int(floor(0.9num))
+            mass = exp(randn())*M
+            position = getRandomPosition("line", num, vector, minn,maxx)
+            newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+            insertBody(C,newBody)
         end
+        for i in 1:(num - Int(floor(0.9num)))-1
+            mass = (rand(1:10)+rand(Float64))*10M
+            position = getRandomPosition("line", num, vector, Int64(ceil(minn+mid)),Int64(floor(maxx-mid)))
+            newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+            insertBody(C,newBody)
+        end
+        mass = (rand(1:10)+rand(Float64))*100M
+        position = getRandomPosition("line", num, vector, Int64(ceil(minn+2mid)),Int64(floor(maxx-2mid)))
+        newBody = Body(num, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+        insertBody(C,newBody)
     end
 end
 
@@ -183,11 +194,11 @@ function randomGalaxy(num::Int64=100)
         global strengthOfInteraction = 3
     else
         global timeScalar = nothing
-        global timeScalar = 60*60*60*24*365*5e6
+        global timeScalar = 60*60*60*24*365*7e6
         global strengthOfInteraction = nothing
-        global strengthOfInteraction = 1.25
+        global strengthOfInteraction = 1.3125
     end
-    basicSimulation(C,num)
+    basicSimulation(C)
 
 end
 
@@ -215,6 +226,7 @@ function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=100)
     # add bodies in a plane
     addBodies(C,"disk",num,normal,1,1000)
     # assign initial velocity for all the body
+    changeRotatingPlane(normal)
     caluculateInitialSpeed(C)
     if num== 2
         global timeScalar = nothing
@@ -225,9 +237,9 @@ function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=100)
         global timeScalar = nothing
         global timeScalar = 60*60*60*24*365*5e6
         global strengthOfInteraction = nothing
-        global strengthOfInteraction = 1
+        global strengthOfInteraction = 1.125
     end
-    basicSimulation(C,num)
+    basicSimulation(C)
 end
 
 # this is a line-shaped galaxy simulator similating a space of 1000 pc * 1000 pc *1000 pc
@@ -265,7 +277,7 @@ function lineGalaxy(dir::Array{Float64,1}=[1.0,1.0,0.0], num::Int64=100)
         global strengthOfInteraction = nothing
         global strengthOfInteraction = 0.1
     end
-    basicSimulation(C,num)
+    basicSimulation(C)
 end
 
 # this is a system of two galaxies simulator similating a space of 1000 pc * 1000 pc *1000 pc
@@ -332,14 +344,74 @@ function twoCollapseGalaxy(num1::Int64=100,num2::Int64=100, velocity1::SVector{3
 
     println(C.numOfChild)
     global timeScalar = nothing
-    global timeScalar = 60*60*60*24*365*5e6
+    global timeScalar = 60*60*60*24*365*1e7
     global strengthOfInteraction = nothing
     global strengthOfInteraction = 1
-    basicSimulation(C,num1+num2)
+    basicSimulation(C)
 end
 
+function jupiterSring()
+    minBounds, maxBounds = getBoundsBasedOnTypes("random",[0.0,0.0,0.0], 499.999999995, 500.000000005)
+    # making an empty tree
+    C= Node(
+           false, Array{Node,1}(undef, 8),0,
+           Body(), 0.0, SVector{3, Float64}(zeros(3)),
+           minBounds,maxBounds
+           )
+    # add 100 small random bodies
+    for i in 1:100
+        mass = rand()*M*5e-17
+        position = [500+rand()/250000000,500+rand()/250000000,500+rand()/250000000 ]
+        newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+        insertBody(C,newBody)
+    end
+
+    # add jupitar
+    newBody = Body(0, 0.001M, [500.0,500.0,500.0], SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+    insertBody(C,newBody)
+    # assign initial velocity for all the body
+    caluculateInitialSpeed(C)
+
+    # tuning for different cases
+
+    global timeScalar = nothing
+    global timeScalar = 60*60*60
+    global strengthOfInteraction = nothing
+    global strengthOfInteraction = 1
+
+    basicSimulation(C)
+
+end
 # this function changes theta (s/d)
 function changeTheta(theta::Float64)
     global THETA = nothing
     global THETA = theta
+end
+
+# this function changes how long the simulation is
+function changeDuration(factor::Float64)
+    oldSecs =  secs
+    global secs = nothing
+    global secs = oldSecs*factor
+    global secsToPlot = nothing
+    global secsToPlot = oldSecs*factor
+
+end
+
+function getDuration()
+    return secsToPlot
+end
+
+function changeSpeed(factor::Float64)
+    oldSpeed = timeScalar
+    global timeScalar = nothing
+    global timeScalar = oldSpeed*factor
+end
+
+function changeRotatingPlane(vector::Array{Float64,1})
+    if length(vector) != 3
+        error("vector must be 3-dimensional")
+    end
+    global rotatingPlane = nothing
+    global rotatingPlane = vector
 end
