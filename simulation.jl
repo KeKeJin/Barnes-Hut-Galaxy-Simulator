@@ -6,8 +6,6 @@ global secs = 30
 function basicSimulation(C::Node)
     global timesInSec = 0.00
 
-
-    creep(C)
     # keep a local dataframe to update
     df = writeStatsToFrame(C)
     # write this stats to a csv file
@@ -205,7 +203,7 @@ end
 # this is a disk-shaped galaxy simulator similating a space of 1000 pc * 1000 pc *1000 pc
 # optional arguments: normal-> the normal vector of the plane;
 #       num -> number of bodies in the system
-function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=100)
+function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=1000)
     if length(normal)!=3
         error("Normal vector must have 3 components")
     end
@@ -228,6 +226,7 @@ function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=100)
     # assign initial velocity for all the body
     changeRotatingPlane(normal)
     caluculateInitialSpeed(C)
+
     if num== 2
         global timeScalar = nothing
         global timeScalar = 60*60*60*24*365*7e7
@@ -235,10 +234,11 @@ function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=100)
         global strengthOfInteraction = 3
     else
         global timeScalar = nothing
-        global timeScalar = 60*60*60*24*365*5e6
+        global timeScalar = 60*60*60*24*365*5e7
         global strengthOfInteraction = nothing
         global strengthOfInteraction = 1.125
     end
+    # addEnvironment(C,"disk",10*num,normal,1,1000)
     basicSimulation(C)
 end
 
@@ -382,6 +382,19 @@ function jupiterSring()
     basicSimulation(C)
 
 end
+
+# this function add 10X random stars
+function addEnvironment(C::Node, type::String, num::Int64, vector::Array{Float64,1}, minn::Int64,maxx::Int64)
+    for i in 1:num
+        mass = rand()*M
+        position = getRandomPosition("disk", num, vector, minn,maxx)
+        newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+        insertBody(C,newBody)
+    end
+    printSpeed(C)
+    caluculateInitialSpeedForEnvironment(C, vector)
+
+end
 # this function changes theta (s/d)
 function changeTheta(theta::Float64)
     global THETA = nothing
@@ -414,4 +427,14 @@ function changeRotatingPlane(vector::Array{Float64,1})
     end
     global rotatingPlane = nothing
     global rotatingPlane = vector
+end
+
+function printSpeed(C::Node)
+    if C.hasChildren && C.numOfChild != 1
+        for i in 1:8
+            printSpeed(C.children[i])
+        end
+    elseif C.hasChildren && C.numOfChild == 1
+        println(C.body.velocity)
+    end
 end

@@ -368,7 +368,7 @@ function caluculateInitialSpeedHelper(node::Node, centerOfMass::SVector{3, Float
             caluculateInitialSpeedHelper(node.children[i], centerOfMass, totalMass)
         end
     elseif node.hasChildren && node.numOfChild == 1
-        node.body.velocity = sqrt(G*totalMass/dis(centerOfMass,node.body.position)) .*getDirectionOfVelocity(centerOfMass,node.body.position)
+        node.body.velocity = sqrt(G*totalMass*100/dis(centerOfMass,node.body.position)) .*getDirectionOfVelocity(centerOfMass,node.body.position)
     end
 end
 
@@ -382,7 +382,29 @@ function caluculateInitialSpeedPlusHelper(node::Node, centerOfMass::SVector{3, F
         for i in 1:8
             caluculateInitialSpeedPlusHelper(node.children[i], centerOfMass, totalMass,centerOfMassVelocity )
         end
-    elseif node.hasChildren && node.numOfChild == 1 && node.body.velocity ==0
+    elseif node.hasChildren && node.numOfChild == 1 && node.body.velocity ==[0.0,0.0,0.0]
         node.body.velocity = centerOfMassVelocity + sqrt(G*totalMass/dis(centerOfMass,node.body.position)) .*getDirectionOfVelocity(centerOfMass,node.body.position)
+    end
+end
+
+
+# this function update the tree of bodies with stable orbit velocity
+function caluculateInitialSpeedForEnvironment(node::Node, vector::Array{Float64,1})
+    caluculateInitialSpeedForEnvironmentHelper(node, vector)
+end
+
+function caluculateInitialSpeedForEnvironmentHelper(node::Node, vector::Array{Float64,1})
+    if node.hasChildren && node.numOfChild > 1
+        for i in 1:8
+            caluculateInitialSpeedForEnvironmentHelper(node.children[i], vector)
+        end
+    elseif node.hasChildren && node.numOfChild == 1 && node.body.velocity == [0.0,0.0,0.0]
+        println("olaolaoa")
+        x = rand()
+        println(x)
+        if x>0.5
+
+            node.body.velocity =  (rand(0:1000) + rand(Float64)) .* vector
+        end
     end
 end
