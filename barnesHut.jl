@@ -25,7 +25,7 @@ mutable struct Body
     id::Int64
     mass::Float64
     position::SVector{3, Float64}
-    force::SVector{3, Float64}
+    acceleration::SVector{3, Float64}
     velocity::SVector{3, Float64}
 end
 Body() = Body(0, 0.0, SVector{3, Float64}(zeros(Float64,3)),
@@ -146,7 +146,14 @@ function insertBody(node::Node, body::Body)
 
     # update mass, centerOfMass
     totalMass = node.mass + body.mass
+    # println(".......................................................................")
+    # println("total mass ", totalMass)
+    # println("center of mass ,", node.centerOfMass)
+    # println("body position ,", body.position)
+    # println("node mass, ", node.mass)
+    # println("body mass, ", body.mass)
     node.centerOfMass = node.mass/totalMass.*node.centerOfMass + body.mass/totalMass.*body.position
+    # println("new center of mass, ", node.centerOfMass)
     node.mass = totalMass
     # where to insert the body?
     if node.hasChildren && node.numOfChild == 1 # we need to make new subnodes
@@ -179,15 +186,14 @@ function getDirectionOfVelocity(x::SVector{3, Float64}, y::SVector{3, Float64})
     return velocityDir/dis(x,y)
 end
 
-# this function calculate the force of a body acted by a node
-function calculateForce(node::Node, body::Body)
-    currentForce =  calculateForceHelper(node, body)
-    body.force = strengthOfInteraction*currentForce
-    return body.force
+# this function calculate the acceleration of a body acted by a node
+function calculateAcceleration(node::Node, body::Body)
+    currentAcceleration =  calculateAccelerationHelper(node, body)
+    body.acceleration = strengthOfInteraction*currentAcceleration
 end
 
-function calculateForceHelper(node::Node, body::Body)
-    currentForce = [0.0,0.0,0.0]
+function calculateAccelerationHelper(node::Node, body::Body)
+    currentAcceleration = [0.0,0.0,0.0]
     if node.hasChildren && node.numOfChild > 1
         # calculate the s/d ratio
         d = dis(node.centerOfMass,body.position)
@@ -198,25 +204,25 @@ function calculateForceHelper(node::Node, body::Body)
         if s/d > THETA
             # this means that the node is considered close to the body
             for i in 1:8
-                currentForce = currentForce .+ calculateForce(node.children[i], body)
+                currentAcceleration = currentAcceleration .+ calculateAccelerationHelper(node.children[i], body)
             end
         else
             # this means that the node is far away from the body
-            currentForce = currentForce .+ G*node.mass*body.mass./(dis(node.centerOfMass,body.position)^3 )*distanceRate.*(node.centerOfMass .- body.position)
+            currentAcceleration = currentAcceleration .+ G*node.mass./(dis(node.centerOfMass,body.position)*distanceRate)^2 .*(node.centerOfMass .- body.position)/dis(node.centerOfMass, body.position)
         end
     elseif node.hasChildren && node.numOfChild == 1 && node.body.id!=body.id
         if node.body.position == body.position
             println("crap")
         end
-        currentForce = currentForce .+ G*node.mass*body.mass./(dis(node.centerOfMass,body.position)^3)*distanceRate .*(node.body.position .- body.position) # try switching direction of force
+        currentAcceleration = currentAcceleration .+ G*node.mass./(dis(node.centerOfMass,body.position)*distanceRate)^2 .*(node.body.position .- body.position)/dis(node.centerOfMass,body.position)# try switching direction of acceleration
     end
-    return currentForce
+    return currentAcceleration
 end
 
-# this function first calls apply force to get updates on the new net force acted on the body,
+# this function first calls apply acceleration to get updates on the new net acceleration acted on the body,
 # and then call creepHelper to update the new position and velocity for each body
 function creep(node::Node)
-    applyForce(node)
+    applyAcceleration(node)
     creepHelper(node)
 end
 
@@ -226,7 +232,7 @@ function creepHelper(node::Node)
             creepHelper(node.children[i])
         end
     elseif node.hasChildren && node.numOfChild == 1
-        acceleration = node.body.force/node.body.mass
+        acceleration = node.body.acceleration
         time = frameRate*timeScalar
         newPosition = node.body.position*distanceRate + time .* node.body.velocity + 0.5*time^2 .*acceleration
         node.body.position = newPosition/distanceRate
@@ -241,20 +247,20 @@ function creepHelper(node::Node)
     end
 end
 
-# this function traverse the node and calculate and apply the new force of each body
-function applyForce(node::Node)
-    applyForceHelper(node, node)
+# this function traverse the node and calculate and apply the new acceleration of each body
+function applyAcceleration(node::Node)
+    applyAccelerationHelper(node, node)
 
 end
 
-# this function is a recursive helper for applyForce
-function applyForceHelper(originalNode::Node, node::Node)
+# this function is a recursive helper for applyAcceleration
+function applyAccelerationHelper(originalNode::Node, node::Node)
     if node.hasChildren && node.numOfChild > 1
         for i in 1:8
-            applyForceHelper(originalNode, node.children[i])
+            applyAccelerationHelper(originalNode, node.children[i])
         end
     elseif node.hasChildren && node.numOfChild == 1
-        calculateForce(originalNode, node.body)
+        calculateAcceleration(originalNode, node.body)
     end
 end
 
@@ -262,7 +268,7 @@ end
 function writeStatsToFrame(node::Node)
     df = DataFrame( mass = Float64[], positionX = Float64[], positionY = Float64[],positionZ = Float64[],
     velocityX = Float64[], velocityY = Float64[], velocityZ = Float64[],
-    forceX = Float64[], forceY = Float64[], forceZ = Float64[] )
+    accelerationX = Float64[], accelerationY = Float64[], accelerationZ = Float64[] )
     # first entry is the center of mass
     push!(df, [node.mass, node.centerOfMass[1],node.centerOfMass[2],node.centerOfMass[3],
      0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
@@ -277,10 +283,9 @@ function writeStatsToFrameHelper(node::Node, df::DataFrame)
             writeStatsToFrameHelper(node.children[i],df)
         end
     elseif node.hasChildren && node.numOfChild == 1
-        # push!(df, [node.body.position,node.body.velocity,node.body.force])
         push!(df, [node.body.mass, node.body.position[1],node.body.position[2],node.body.position[3],
          node.body.velocity[1],node.body.velocity[2],node.body.velocity[3],
-          node.body.force[1],node.body.force[2],node.body.force[3]])
+          node.body.acceleration[1],node.body.acceleration[2],node.body.acceleration[3]])
     end
 end
 
@@ -367,8 +372,28 @@ function caluculateInitialSpeedHelper(node::Node, centerOfMass::SVector{3, Float
         for i in 1:8
             caluculateInitialSpeedHelper(node.children[i], centerOfMass, totalMass)
         end
+    elseif node.hasChildren && node.numOfChild == 1 &&node.body.mass < 1e34
+        node.body.velocity = sqrt(G*totalMass/dis(centerOfMass,node.body.position)/distanceRate) .*getDirectionOfVelocity(centerOfMass,node.body.position)
+    end
+end
+
+# this function update the tree of bodies with random velocity
+function caluculateInitialSpeedRandom(node::Node)
+    caluculateInitialSpeedRandomHelper(node)
+end
+
+function caluculateInitialSpeedRandomHelper(node::Node)
+    if node.hasChildren && node.numOfChild > 1
+        for i in 1:8
+            caluculateInitialSpeedRandomHelper(node.children[i])
+        end
     elseif node.hasChildren && node.numOfChild == 1
-        node.body.velocity = sqrt(G*totalMass*100/dis(centerOfMass,node.body.position)) .*getDirectionOfVelocity(centerOfMass,node.body.position)
+        if node.body.mass < 1e34
+            println("mass, ", node.body.mass)
+            node.body.velocity = [rand(1:3e7-1)+rand(),rand(1:3e7-1)+rand(),rand(1:3e7-1)+rand()]
+        else
+            println("here")
+        end
     end
 end
 

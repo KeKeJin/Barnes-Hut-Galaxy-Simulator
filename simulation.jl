@@ -144,10 +144,20 @@ function addBodies(C::Node, type::String, num::Int64, vector::Array{Float64,1}, 
             newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
             insertBody(C,newBody)
         end
-        mass = (rand(1:10)+rand(Float64))*100M
-        position = getRandomPosition("disk", num, vector, Int64(ceil(minn+2mid)),Int64(floor(maxx-2mid)))
-        newBody = Body(num, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+
+        mass = (rand(1:10)+rand(Float64))*50000M
+        println("CENTER OF MASS BEFORE ", C.centerOfMass)
+
+        println("total mass before, ", C.mass)
+        position = rand()/100 .+C.centerOfMass
+        println("position is, ", position)
+        println("big mass is, ", mass)
+        newBody = Body(-1, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
+        println("Force is ", G*C.mass*mass./(dis(C.centerOfMass,position)*distanceRate)^2)
         insertBody(C,newBody)
+        println("CENTER OF MASS AFTER ", C.centerOfMass)
+        println("total mass after, ", C.mass)
+
 
     elseif type == "line"
         for i in 1:Int(floor(0.9num))
@@ -203,7 +213,7 @@ end
 # this is a disk-shaped galaxy simulator similating a space of 1000 pc * 1000 pc *1000 pc
 # optional arguments: normal-> the normal vector of the plane;
 #       num -> number of bodies in the system
-function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=1000)
+function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=100)
     if length(normal)!=3
         error("Normal vector must have 3 components")
     end
@@ -225,8 +235,8 @@ function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=1000)
     addBodies(C,"disk",num,normal,1,1000)
     # assign initial velocity for all the body
     changeRotatingPlane(normal)
+    #caluculateInitialSpeed(C)
     caluculateInitialSpeed(C)
-
     if num== 2
         global timeScalar = nothing
         global timeScalar = 60*60*60*24*365*7e7
@@ -234,9 +244,10 @@ function diskGalaxy(normal::Array{Float64,1} = [1.0,1.0,0.0], num::Int64=1000)
         global strengthOfInteraction = 3
     else
         global timeScalar = nothing
-        global timeScalar = 60*60*60*24*365*5e7
+        global timeScalar = 60*60*60*24*365*7e14
         global strengthOfInteraction = nothing
-        global strengthOfInteraction = 1.125
+        global strengthOfInteraction = 2e33
+        # or 4e33
     end
     # addEnvironment(C,"disk",10*num,normal,1,1000)
     basicSimulation(C)
@@ -346,7 +357,7 @@ function twoCollapseGalaxy(num1::Int64=100,num2::Int64=100, velocity1::SVector{3
     global timeScalar = nothing
     global timeScalar = 60*60*60*24*365*1e7
     global strengthOfInteraction = nothing
-    global strengthOfInteraction = 1
+    global strengthOfInteraction = 2e50
     basicSimulation(C)
 end
 

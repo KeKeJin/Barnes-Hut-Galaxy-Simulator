@@ -71,7 +71,7 @@ diskGalaxy([, normal => normal vector of the disk plane,
             num => number of bodies in the simulator])
 ```
 
-![diskGalaxy.gif](exampleSimulation/diskGalaxy.gif)
+![disk.gif](exampleSimulation/disk.gif)
 
 ---
 
