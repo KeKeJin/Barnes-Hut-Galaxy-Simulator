@@ -1,6 +1,6 @@
 includet("barnesHut.jl")
 includet("visualization.jl")
-global secs = 30
+global secs = 3
 
 # this is a helper function called by other specific simulator functions
 function basicSimulation(C::Node)
@@ -126,8 +126,8 @@ function addBodies(C::Node, type::String, num::Int64, vector::Array{Float64,1}, 
             newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
             insertBody(C,newBody)
         end
-        mass = (rand(1:10)+rand(Float64))*100M
-        position = getRandomPosition("random", num, vector,Int64(ceil(minn+2mid)),Int64(floor(maxx-2mid)))
+        mass = (rand(1:10)+rand(Float64))*50000M
+        position = rand()/100 .+C.centerOfMass
         newBody = Body(num, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
         insertBody(C,newBody)
 
@@ -202,9 +202,9 @@ function randomGalaxy(num::Int64=100)
         global strengthOfInteraction = 3
     else
         global timeScalar = nothing
-        global timeScalar = 60*60*60*24*365*7e6
+        global timeScalar = 60*60*60*24*365*7e14
         global strengthOfInteraction = nothing
-        global strengthOfInteraction = 1.3125
+        global strengthOfInteraction = 2e33
     end
     basicSimulation(C)
 
@@ -414,6 +414,16 @@ end
 
 # this function changes how long the simulation is
 function changeDuration(factor::Float64)
+    oldSecs =  secs
+    global secs = nothing
+    global secs = oldSecs*factor
+    global secsToPlot = nothing
+    global secsToPlot = oldSecs*factor
+
+end
+
+# this function changes how long the simulation is
+function changeDuration(factor::Int64)
     oldSecs =  secs
     global secs = nothing
     global secs = oldSecs*factor

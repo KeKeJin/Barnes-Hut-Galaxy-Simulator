@@ -4,7 +4,7 @@ using CSV
 
 frameRate = 1/60
 global timeInSec=0.0-frameRate
-global secsToPlot = 30
+global secsToPlot = 3
 
 function getDataFromFile()
     global timeInSec += frameRate
