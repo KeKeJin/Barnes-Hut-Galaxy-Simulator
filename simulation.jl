@@ -464,6 +464,16 @@ function changeRotatingPlane(vector::Array{Float64,1})
     global rotatingPlane = vector
 end
 
+
+function changeEpsilon(e::Float64)
+    global epsilon = nothing
+    global epsilon = e
+end
+
+function checkEpsilon()
+    return epsilon
+end
+
 function printSpeed(C::Node)
     if C.hasChildren && C.numOfChild != 1
         for i in 1:8

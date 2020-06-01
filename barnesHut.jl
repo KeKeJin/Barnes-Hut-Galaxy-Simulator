@@ -14,13 +14,18 @@ global frameRate = 1/24
 
 global M = 2e30 # 1 = 1 solar mass
 
-global timeScalar = 60*60*60*24*365*5e6 #1000000 year in frames
+global timeScalar = 60*60*60*24*365*5e6 #1 frame
 
 global distanceRate = 3.3e16 # 1 = 1 parsec = 3.3 light year = 3.3e16 m
 
 global strengthOfInteraction = 1
 
 global rotatingPlane = [1.0,-1.0,-1.0]
+
+global minimumDis = 5e33 # m
+
+global epsilon = 3.0e45
+
 mutable struct Body
     id::Int64
     mass::Float64
@@ -138,6 +143,16 @@ function divideToOctants(node::Node)
     end
 end
 
+# this function merges two bodies that is considered to be close to each other
+function mergeBodies(b1::Body, b2::Body)
+    totalMass = b1.mass + b2.mass
+    b1.position = (b1.mass .* b1.position + b2.mass .* b2.position)/totalMass
+    b1.velocity = (b1.mass .* b1.velocity + b2.mass .* b2.velocity)/totalMass
+    b1.acceleration = (b1.mass .* b1.acceleration + b2.mass .* b2.acceleration)/totalMass
+    b1.mass = b1.mass + b2.mass
+    return b1
+
+end
 # this functions simulates adding a body into a node, subjecting to the quadtree structure
 function insertBody(node::Node, body::Body)
 
@@ -156,11 +171,16 @@ function insertBody(node::Node, body::Body)
     node.mass = totalMass
     # where to insert the body?
     if node.hasChildren && node.numOfChild == 1 # we need to make new subnodes
-
-        node.numOfChild += 1
-        divideToOctants(node)
-        insertBody(node.children[octantsOriginal], node.body)
-        insertBody(node.children[octantsNew],body)
+        if dis(node.centerOfMass, body.position)*distanceRate < minimumDis
+            # if the body is too closed to the node, consider them one big node
+            node.body = mergeBodies(node.body, body)
+            return
+        else
+            node.numOfChild += 1
+            divideToOctants(node)
+            insertBody(node.children[octantsOriginal], node.body)
+            insertBody(node.children[octantsNew],body)
+        end
     elseif node.numOfChild > 1 # we already have subnodes
         insertBody(node.children[octantsNew], body)
         node.numOfChild += 1
@@ -207,13 +227,13 @@ function calculateAccelerationHelper(node::Node, body::Body)
             end
         else
             # this means that the node is far away from the body
-            currentAcceleration = currentAcceleration .+ G*node.mass./(dis(node.centerOfMass,body.position)*distanceRate)^2 .*(node.centerOfMass .- body.position)/dis(node.centerOfMass, body.position)
+            currentAcceleration = currentAcceleration .+ G*node.mass./((dis(node.centerOfMass,body.position)*distanceRate)^2+epsilon*distanceRate) .*(node.centerOfMass .- body.position)/dis(node.centerOfMass, body.position)
         end
     elseif node.hasChildren && node.numOfChild == 1 && node.body.id!=body.id
         if node.body.position == body.position
             println("crap")
         end
-        currentAcceleration = currentAcceleration .+ G*node.mass./(dis(node.centerOfMass,body.position)*distanceRate)^2 .*(node.body.position .- body.position)/dis(node.centerOfMass,body.position)# try switching direction of acceleration
+        currentAcceleration = currentAcceleration .+ G*node.mass./((dis(node.centerOfMass,body.position)*distanceRate)^2+epsilon*distanceRate) .*(node.body.position .- body.position)/dis(node.centerOfMass,body.position)# try switching direction of acceleration
     end
     return currentAcceleration
 end
@@ -272,6 +292,7 @@ function writeStatsToFrame(node::Node)
     push!(df, [node.mass, node.centerOfMass[1],node.centerOfMass[2],node.centerOfMass[3],
      0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     writeStatsToFrameHelper(node, df)
+    # sort!(df)
     return df
 end
 

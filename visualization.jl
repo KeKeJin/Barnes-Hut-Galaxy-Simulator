@@ -1,7 +1,6 @@
 using Plots
 using DataFrames
 using CSV
-using Statistics
 
 frameRate = 1/24
 global timeInSec=0.0-frameRate
@@ -61,7 +60,7 @@ function plotting()
     # build an animated gif by pushing new points to the plot, saving every 10th frame
     @gif for i=2:secsToPlot*24+1
         xs, ys, zs, ms = getDataFromFile()
-
+        len = length(xs)
 
         plot([xs[1]],[ys[1]], [zs[1]],
             seriestype=:scatter, marker= (:yellow, stroke(3, 0.2, :yellow)), markersize = 0, camera = (30,30),background_color = :black,
