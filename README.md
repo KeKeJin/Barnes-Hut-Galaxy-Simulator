@@ -98,7 +98,7 @@ twoCollapseGalaxy([,num1 -> number of bodies in the first galaxy,
                   vector1 -> the normal vector or direction vector of the first galaxy,
                   vector2 -> the normal vector or direction vector of the second galaxy]
 ```
-![twoGalaxies2.gif](exampleSimulation/twoGalaxies2.gif)
+![twoGalaxy.gif](exampleSimulation/twoGalaxy.gif)
 
 ---
 

@@ -10,7 +10,7 @@ global THETA = 0.7
 
 global timesInSec = 0.00
 
-global frameRate = 1/60
+global frameRate = 1/24
 
 global M = 2e30 # 1 = 1 solar mass
 
@@ -58,6 +58,7 @@ SVector{3, Float64}(zeros(3)),SVector{3, Float64}(zeros(3))
 function determineWhichoctants(position::SArray{Tuple{3},Float64,1,3},
                                 minBounds::SArray{Tuple{3},Float64,1,3},
                                 maxBounds::SArray{Tuple{3},Float64,1,3})
+
     x = position[1]
     y = position[2]
     z = position[3]
@@ -71,23 +72,26 @@ function determineWhichoctants(position::SArray{Tuple{3},Float64,1,3},
     minY = minBounds[2]
     minZ = minBounds[3]
 
+    output = 0
     if minX <= x < midX && minY <= y < midY && minZ <= z < midZ
-        return 5
+        output =  5
     elseif minX <= x < midX && minY <= y < midY && maxZ >= z >= midZ
-        return 7
+        output =  7
     elseif minX <= x < midX && maxY >= y >= midY && minZ <= z < midZ
-        return 1
+        output =  1
     elseif minX <= x < midX &&  maxY >= y >= midY && maxZ>= z >= midZ
-        return 3
+        output =  3
     elseif maxX >= x >= midX && minY <= y < midY && minZ <= z < midZ
-        return 6
+        output =  6
     elseif maxX >= x >= midX && minY <= y < midY && maxZ >= z >= midZ
-        return 8
+        output =  8
     elseif maxX >= x >= midX && maxY >= y >= midY && minZ <= z < midZ
-        return 2
+        output =  2
     elseif maxX >= x >= midX && maxY >= y >= midY && maxZ >= z >= midZ
-        return 4
+        output =  4
     end
+
+    return output
 end
 
 # this function returns two lists: a list of minBounds for 8 octantss, and a list of maxBounds for 8 octantss
@@ -146,14 +150,9 @@ function insertBody(node::Node, body::Body)
 
     # update mass, centerOfMass
     totalMass = node.mass + body.mass
-    # println(".......................................................................")
-    # println("total mass ", totalMass)
-    # println("center of mass ,", node.centerOfMass)
-    # println("body position ,", body.position)
-    # println("node mass, ", node.mass)
-    # println("body mass, ", body.mass)
+
     node.centerOfMass = node.mass/totalMass.*node.centerOfMass + body.mass/totalMass.*body.position
-    # println("new center of mass, ", node.centerOfMass)
+
     node.mass = totalMass
     # where to insert the body?
     if node.hasChildren && node.numOfChild == 1 # we need to make new subnodes
@@ -389,10 +388,10 @@ function caluculateInitialSpeedRandomHelper(node::Node)
         end
     elseif node.hasChildren && node.numOfChild == 1
         if node.body.mass < 1e34
-            println("mass, ", node.body.mass)
+
             node.body.velocity = [rand(1:3e7-1)+rand(),rand(1:3e7-1)+rand(),rand(1:3e7-1)+rand()]
         else
-            println("here")
+
         end
     end
 end
@@ -407,8 +406,10 @@ function caluculateInitialSpeedPlusHelper(node::Node, centerOfMass::SVector{3, F
         for i in 1:8
             caluculateInitialSpeedPlusHelper(node.children[i], centerOfMass, totalMass,centerOfMassVelocity )
         end
-    elseif node.hasChildren && node.numOfChild == 1 && node.body.velocity ==[0.0,0.0,0.0]
-        node.body.velocity = centerOfMassVelocity + sqrt(G*totalMass/dis(centerOfMass,node.body.position)) .*getDirectionOfVelocity(centerOfMass,node.body.position)
+    elseif node.hasChildren && node.numOfChild == 1&&node.body.mass < 1e33
+        node.body.velocity = centerOfMassVelocity + sqrt(G*totalMass/dis(centerOfMass,node.body.position)/distanceRate) .*getDirectionOfVelocity(centerOfMass,node.body.position)
+    elseif node.hasChildren && node.numOfChild == 1&&node.body.mass >= 1e33
+        node.body.velocity = centerOfMassVelocity
     end
 end
 
@@ -424,12 +425,22 @@ function caluculateInitialSpeedForEnvironmentHelper(node::Node, vector::Array{Fl
             caluculateInitialSpeedForEnvironmentHelper(node.children[i], vector)
         end
     elseif node.hasChildren && node.numOfChild == 1 && node.body.velocity == [0.0,0.0,0.0]
-        println("olaolaoa")
         x = rand()
-        println(x)
         if x>0.5
 
             node.body.velocity =  (rand(0:1000) + rand(Float64)) .* vector
         end
     end
+end
+
+# this function merges two nodes into one nodes
+function mergeTwoNodes(C1::Node, C2::Node)
+
+    df = writeStatsToFrame(C1)
+
+    writeStatsToFrameHelper(C2, df)
+
+    C = makeTreeFromFrame(df)
+
+    return C
 end

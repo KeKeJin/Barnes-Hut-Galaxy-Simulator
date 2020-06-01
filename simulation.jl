@@ -11,7 +11,7 @@ function basicSimulation(C::Node)
     # write this stats to a csv file
     CSV.write("data/"*string(timesInSec)*".csv", df)
 
-    frames = secs*60
+    frames = secs*24
     # simulate new positions for "frames" number of frames
     for i in 1:frames
         C = makeTreeFromFrame(df)
@@ -37,7 +37,6 @@ function getBoundsBasedOnTypes(type::String, vector::Array{Float64,1}, minX::Flo
             minBounds = SVector{3, Float64}(-maxX,-maxX,minX)
             maxBounds = SVector{3, Float64}(maxX,maxX,maxX)
         else
-            println(-minX*normal[1]-minX*normal[2],-maxX*normal[1]-maxX*normal[2])
             minZ = min(-minX*normal[1]-minX*normal[2],-maxX*normal[1]-maxX*normal[2])/normal[3]
             maxZ = max(-minX*normal[1]-minX*normal[2],-maxX*normal[1]-maxX*normal[2])/normal[3]
             if minZ == maxZ
@@ -126,7 +125,7 @@ function addBodies(C::Node, type::String, num::Int64, vector::Array{Float64,1}, 
             newBody = Body(i, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
             insertBody(C,newBody)
         end
-        mass = (rand(1:10)+rand(Float64))*50000M
+        mass = (rand(1:10)+rand(Float64))*(maxx-minn)*num*M
         position = rand()/100 .+C.centerOfMass
         newBody = Body(num, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
         insertBody(C,newBody)
@@ -145,18 +144,14 @@ function addBodies(C::Node, type::String, num::Int64, vector::Array{Float64,1}, 
             insertBody(C,newBody)
         end
 
-        mass = (rand(1:10)+rand(Float64))*50000M
-        println("CENTER OF MASS BEFORE ", C.centerOfMass)
+        mass = (rand(1:10)+rand(Float64))*(maxx-minn)*num*M
 
-        println("total mass before, ", C.mass)
         position = rand()/100 .+C.centerOfMass
-        println("position is, ", position)
-        println("big mass is, ", mass)
+
         newBody = Body(-1, mass, position, SVector{3, Float64}(zeros(Float64,3)), SVector{3, Float64}(zeros(Float64,3)))
-        println("Force is ", G*C.mass*mass./(dis(C.centerOfMass,position)*distanceRate)^2)
+
         insertBody(C,newBody)
-        println("CENTER OF MASS AFTER ", C.centerOfMass)
-        println("total mass after, ", C.mass)
+
 
 
     elseif type == "line"
@@ -300,8 +295,8 @@ end
 #                     type2 -> the type of the second galaxy,
 #                     vector1 -> the normal vector or direction vector of the first galaxy,
 #                     vector2 -> the normal vector or direction vector of the second galaxy]
-function twoCollapseGalaxy(num1::Int64=100,num2::Int64=100, velocity1::SVector{3,Float64}=SVector{3,Float64}(50.0,50.0,50.0),
-    velocity2::SVector{3,Float64}=SVector{3,Float64}(-100.0,-100.0,-100.0), type1::String="disk",type2::String="disk",
+function twoCollapseGalaxy(num1::Int64=100,num2::Int64=100, velocity1::SVector{3,Float64}=SVector{3,Float64}(0.0,0.0,0.0),
+    velocity2::SVector{3,Float64}=SVector{3,Float64}(0.0,0.0,0.0), type1::String="disk",type2::String="disk",
     vector1::Array{Float64,1}=[1.0,1.0,0.0], vector2::Array{Float64,1}=[1.0,1.0,0.0])
     if length(velocity2)!=3 || length(velocity1)!=3
         error("Velocity vector(s) must have 3 components")
@@ -314,9 +309,15 @@ function twoCollapseGalaxy(num1::Int64=100,num2::Int64=100, velocity1::SVector{3
     end
 
 
+    global timeScalar = nothing
+    global timeScalar = 60*60*60*24*365*1e14
+    global strengthOfInteraction = nothing
+    global strengthOfInteraction = 2e33
+
+    changeRotatingPlane(vector1)
     #initialize a new empty tree
-    minBounds1, maxBounds1 = getBoundsBasedOnTypes(type1,vector1, -1.0, 500.0)
-    minBounds2, maxBounds2 = getBoundsBasedOnTypes(type2,vector2, 500.0, 1001.0)
+    minBounds1, maxBounds1 = getBoundsBasedOnTypes(type1,vector1, -10.0, 510.0)
+    minBounds2, maxBounds2 = getBoundsBasedOnTypes(type2,vector2, 490.0, 1010.0)
 
     netMinBounds = SVector{3, Float64}(min(minBounds1[1],minBounds2[1]),
                                        min(minBounds1[2],minBounds2[2]),
@@ -325,39 +326,52 @@ function twoCollapseGalaxy(num1::Int64=100,num2::Int64=100, velocity1::SVector{3
     netMaxBounds = SVector{3, Float64}(max(maxBounds1[1],maxBounds2[1]),
                                        max(maxBounds1[2],maxBounds2[2]),
                                        max(maxBounds1[3],maxBounds2[3]))
-    C= Node(
+
+    # C1 is the first galaxy
+    C1= Node(
            false, Array{Node,1}(undef, 8),0,
            Body(), 0.0, SVector{3, Float64}(zeros(3)),
-           netMinBounds, netMaxBounds
+           minBounds1, maxBounds1
            )
 
+    # C2 is the first galaxy
+    C2= Node(
+          false, Array{Node,1}(undef, 8),0,
+          Body(), 0.0, SVector{3, Float64}(zeros(3)),
+          minBounds2, maxBounds2
+          )
 
+    # add bodies to the first tree
     if type1 == "disk"
-        addBodies(C,"disk",num1, vector1,1,500)
+        addBodies(C1,"disk",num1, vector1,0,500)
     elseif type1 == "random"
-        addBodies(C,"random",num1, [0.0,0.0,0.0],1,500)
+        addBodies(C1,"random",num1, [0.0,0.0,0.0],0,500)
     elseif type1 == "line"
-        addBodies(C,"line",num1, vector1,1,500)
+        addBodies(C1,"line",num1, vector1,0,500)
     end
-    println(C.numOfChild)
-    caluculateInitialSpeedPlus(C,velocity1)
 
     if type2 == "disk"
-        println("here")
-        addBodies(C,"disk",num2,vector2,500,1000)
+        addBodies(C2,"disk",num2,vector2,500,1000)
     elseif type2 == "random"
-        addBodies(C,"random",num2, [0.0,0.0,0.0],500,1000)
+        addBodies(C2,"random",num2, [0.0,0.0,0.0],500,1000)
     elseif type2 == "line"
-        addBodies(C,"line",num1, vector2,500,1000)
+        addBodies(C2,"line",num1, vector2,500,1000)
     end
 
-    caluculateInitialSpeedPlus(C,velocity2)
+    # calculate the velocity of the second galaxy
+    C = mergeTwoNodes(C1, C2)
 
-    println(C.numOfChild)
-    global timeScalar = nothing
-    global timeScalar = 60*60*60*24*365*1e7
-    global strengthOfInteraction = nothing
-    global strengthOfInteraction = 2e50
+    velocity1 = sqrt(G*C.mass/dis(C.centerOfMass,C1.centerOfMass)/distanceRate) .*getDirectionOfVelocity(C.centerOfMass,C1.centerOfMass)
+    velocity1 = SVector{3, Float64}(0.0,0.0,0.0)
+
+    caluculateInitialSpeedPlus(C1,velocity1)
+
+    velocity2 = sqrt(G*C.mass/dis(C.centerOfMass,C2.centerOfMass)/distanceRate) .*getDirectionOfVelocity(C.centerOfMass,C2.centerOfMass)
+    velocity2 = SVector{3, Float64}(0.0,0.0,0.0)
+
+    caluculateInitialSpeedPlus(C2,velocity2)
+    C = mergeTwoNodes(C1, C2)
+
     basicSimulation(C)
 end
 
